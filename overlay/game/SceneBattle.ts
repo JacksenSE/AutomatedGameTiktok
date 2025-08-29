@@ -64,8 +64,12 @@ export class SceneBattle extends Phaser.Scene {
   /** per-match supporters (only gifts we can attribute from current WS schema) */
   private supportersMatch = new Map<string, number>(); // displayName -> score
   private heartsTotalMatch = 0;
+  /** per-user hearts tracking if available from WS */
+  private heartsPerUser = new Map<string, number>();
   /** remember userId -> displayName where available (from 'state'/'joined') */
   private nameByUserId = new Map<string, string>();
+  /** remember userId -> avatarUrl where available */
+  private avatarByUserId = new Map<string, string>();
 
   constructor(){ 
     super('battle'); 
@@ -184,7 +188,12 @@ export class SceneBattle extends Phaser.Scene {
       this.phase = msg.payload.phase;
       (msg.payload.fighters as Array<FighterDTO & { avatarUrl?: string }>).forEach(f => {
         this.nameByUserId.set(f.id, f.name);
-        this.spawnKind('A', 'soldier', { id:f.id, name:f.name });
+        if (f.avatarUrl) this.avatarByUserId.set(f.id, f.avatarUrl);
+        this.spawnKind('A', 'soldier', { 
+          id: f.id, 
+          name: f.name, 
+          avatarUrl: f.avatarUrl 
+        });
       });
       this.updateHud();
       if (this.phase === 'COUNTDOWN') this.runCountdown(3);
@@ -198,13 +207,29 @@ export class SceneBattle extends Phaser.Scene {
     if (msg.type === 'joined'){
       const p = { ...msg.payload, team: 'A' as const } as FighterDTO & { avatarUrl?: string };
       this.nameByUserId.set(p.id, p.name);
-      this.spawnKind('A', 'soldier', { id:p.id, name:p.name });
+      if (p.avatarUrl) this.avatarByUserId.set(p.id, p.avatarUrl);
+      this.spawnKind('A', 'soldier', { 
+        id: p.id, 
+        name: p.name, 
+        avatarUrl: p.avatarUrl 
+      });
       if (this.phase !== 'BATTLE') { this.phase = 'BATTLE'; this.onBattleStart(); }
     }
     if (msg.type === 'hearts') {
-      // We don't have per-user heart attribution in this schema, so just count total.
-      this.heartsTotalMatch += Math.max(0, Number(msg.payload.count) || 0);
-      this.applyHearts(msg.payload.count);
+      // Check if per-user hearts are available
+      const payload = msg.payload as any;
+      if (payload.userId && payload.count) {
+        const userId = String(payload.userId);
+        const count = Math.max(0, Number(payload.count) || 0);
+        this.heartsPerUser.set(userId, (this.heartsPerUser.get(userId) || 0) + count);
+        this.heartsTotalMatch += count;
+        this.applyHearts(count);
+      } else {
+        // Fallback to total count only
+        const count = Math.max(0, Number(payload.count) || 0);
+        this.heartsTotalMatch += count;
+        this.applyHearts(count);
+      }
     }
     if (msg.type === 'gift') {
       const giftType = String(msg.payload.giftType || '').toLowerCase();
@@ -656,6 +681,7 @@ export class SceneBattle extends Phaser.Scene {
       id?: string; name?: string;
       level?: number;
       hpScale?: number; atkScale?: number; speedScale?: number;
+      avatarUrl?: string;
     }
   ){
     const defn = UNIT_DEFS[kind];
@@ -671,6 +697,11 @@ export class SceneBattle extends Phaser.Scene {
     const name = opts?.name ?? (defn.displayName);
 
     const f = new Fighter(this, x, y, id, name, team, kind, defn);
+
+    // Set avatar if available
+    if (opts?.avatarUrl && team === 'A') {
+      f.setAvatarUrl(opts.avatarUrl);
+    }
 
     // Level/scaling for enemies per-wave
     if (opts?.level) f.level = opts.level;
@@ -766,6 +797,13 @@ export class SceneBattle extends Phaser.Scene {
     const topSupporters = [...this.supportersMatch.entries()].sort((a,b)=> b[1]-a[1]).slice(0,5);
     const supporterLines = topSupporters.map(([n,s],i)=> `${i+1}. ${this.trimName(n, 12)} ${s}`);
 
+    // Hearts MVP if per-user data available
+    const topHeartGivers = [...this.heartsPerUser.entries()]
+      .map(([userId, count]) => [this.nameByUserId.get(userId) || userId, count] as [string, number])
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 3);
+    const heartLines = topHeartGivers.map(([n,h],i) => `${i+1}. ${this.trimName(n, 12)} ${h}♥`);
+
     // We only have hud.setStats([...]) in this project, so concatenate neatly.
     this.hud.setStats([
       ...left,
@@ -773,6 +811,7 @@ export class SceneBattle extends Phaser.Scene {
       ... (slayerLines.length ? slayerLines : ['(no kills yet)']),
       '— Supporters (Match) —',
       ... (supporterLines.length ? supporterLines : ['(awaiting gifts)']),
+      ...(heartLines.length ? ['— Hearts MVP —', ...heartLines] : []),
     ]);
   }
 

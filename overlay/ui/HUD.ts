@@ -34,10 +34,14 @@ export class HUD {
     this.stats.className = 'stats';
     Object.assign(this.stats.style, {
       position: 'absolute',
-      bottom: '12px',
+      top: '80px',
       left: '12px',
       fontSize: '16px',
       lineHeight: '20px',
+      background: 'rgba(0,0,0,0.4)',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      maxWidth: '280px',
     });
     root.appendChild(this.stats);
   }

@@ -6,6 +6,7 @@ export type FighterDTO = {
   team: 'A' | 'B';
   hue: number;     // 0..360
   level: number;   // gifts can raise this
+  avatarUrl?: string; // player avatar URL
 };
 
 export type StatePayload = {
@@ -17,7 +18,7 @@ export type WSOut =
   | { type: 'state'; payload: StatePayload }
   | { type: 'phase'; payload: { phase: Phase } }
   | { type: 'joined'; payload: FighterDTO }
-  | { type: 'hearts'; payload: { count: number } }
+  | { type: 'hearts'; payload: { count: number; userId?: string } }
   | { type: 'gift'; payload: { giftType: string; userId?: string } }
   | { type: 'winner'; payload: { id: string } };
 

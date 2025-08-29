@@ -29,6 +29,7 @@ export class Fighter extends Phaser.Physics.Matter.Sprite {
   label: Phaser.GameObjects.Text;
   hpBarBg: Phaser.GameObjects.Rectangle;
   hpBar: Phaser.GameObjects.Rectangle;
+  avatar?: Phaser.GameObjects.Image;
 
   // Runtime
   state: FighterState = 'idle';
@@ -137,6 +138,49 @@ export class Fighter extends Phaser.Physics.Matter.Sprite {
       .rectangle(x - 23, y - 28, 46, 6, 0x55ff77, 1)
       .setOrigin(0, 0.5)
       .setDepth(9);
+
+    // Avatar for team A players (will be set later if available)
+    if (team === 'A') {
+      this.createAvatarPlaceholder(scene, x, y);
+    }
+  }
+
+  private createAvatarPlaceholder(scene: Phaser.Scene, x: number, y: number) {
+    // Create a circular placeholder for avatar
+    const graphics = scene.add.graphics();
+    graphics.fillStyle(0x4dd2ff, 0.8);
+    graphics.fillCircle(11, 11, 10);
+    graphics.lineStyle(2, 0xffffff, 0.9);
+    graphics.strokeCircle(11, 11, 10);
+    const avatarKey = `avatar_placeholder_${this.id}`;
+    graphics.generateTexture(avatarKey, 22, 22);
+    graphics.destroy();
+    
+    this.avatar = scene.add.image(x - 30, y - 42, avatarKey)
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setScale(1);
+  }
+
+  setAvatarUrl(url: string) {
+    if (!this.avatar || this.team !== 'A') return;
+    
+    // Load avatar image
+    const avatarKey = `avatar_${this.id}`;
+    if (!this.scene.textures.exists(avatarKey)) {
+      this.scene.load.image(avatarKey, url);
+      this.scene.load.once('complete', () => {
+        if (this.avatar && this.scene.textures.exists(avatarKey)) {
+          this.avatar.setTexture(avatarKey);
+          // Make it circular by using a mask
+          const mask = this.scene.add.graphics();
+          mask.fillStyle(0xffffff);
+          mask.fillCircle(this.avatar.x, this.avatar.y, 11);
+          this.avatar.setMask(mask.createGeometryMask());
+        }
+      });
+      this.scene.load.start();
+    }
   }
 
   // --------- Anim Helpers ----------
@@ -169,6 +213,9 @@ export class Fighter extends Phaser.Physics.Matter.Sprite {
     this.label.setPosition(this.x, this.y - 42);
     this.hpBarBg.setPosition(this.x, this.y - 28);
     this.hpBar.setPosition(this.x - 23, this.y - 28);
+    if (this.avatar) {
+      this.avatar.setPosition(this.x - 30, this.y - 42);
+    }
 
     // Stay upright, no spin
     if (this.rotation !== 0) this.setRotation(0);
@@ -264,6 +311,7 @@ export class Fighter extends Phaser.Physics.Matter.Sprite {
       if (!this.active) return;
       this.setActive(false).setVisible(false);
       this.label.destroy(); this.hpBar.destroy(); this.hpBarBg.destroy();
+      if (this.avatar) this.avatar.destroy();
       this.destroy();
     });
   }
