@@ -1,0 +1,21 @@
+{
+  "name": "tiktok-battler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:overlay\"",
+    "dev:server": "node --loader ts-node/esm --project tsconfig.server.json server/index.ts",
+    "dev:overlay": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "phaser": "^3.60.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0"
+  }
+}

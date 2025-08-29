@@ -1,0 +1,6 @@
+html,body { margin:0; background:#0b0e14; overflow:hidden; }
+#hud { position:absolute; inset:0; pointer-events:none; font-family:Inter, ui-sans-serif, system-ui; color:#fff; }
+.hud-top { position:absolute; top:12px; left:12px; font-size:20px; opacity:.9 }
+.banner { position:absolute; top:45%; left:50%; transform:translate(-50%,-50%); font-size:56px; font-weight:800; text-shadow:0 6px 24px rgba(0,0,0,.5); display:none }
+.countdown { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:120px; font-weight:900; display:none }
+.stats { position:absolute; right:16px; top:12px; text-align:right; opacity:.9; font-size:16px }
