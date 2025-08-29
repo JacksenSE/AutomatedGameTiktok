@@ -11,7 +11,7 @@ export class SceneBattle extends Phaser.Scene {
   // ---- Net / phase ----
   ws!: WebSocket;
   phase: Phase = 'LOBBY';
-  private wsUrl = 'ws://localhost:8081';
+  private wsUrl = `ws://${window.location.hostname}:8081`;
   private wsRetry = 0;
   private wsMaxRetry = 6;
   private wsConnectedOnce = false;
@@ -78,13 +78,13 @@ export class SceneBattle extends Phaser.Scene {
     const kinds = Object.keys(UNIT_DEFS) as UnitKind[];
     kinds.forEach(kind=>{
       const base = `assets/characters/${kind}/`;
-      const sheet = (key:string, file:string)=> this.load.spritesheet(key, base + file, { frameWidth: 100, frameHeight: 100 });
+      const img = (key:string, file:string)=> this.load.image(key, base + file);
 
-      sheet(`${kind}_idle_100`,   'Idle.png');
-      sheet(`${kind}_walk_100`,   'Walk.png');   // you renamed Run -> Walk
-      sheet(`${kind}_attack_100`, 'Attack.png');
-      sheet(`${kind}_hurt_100`,   'Hurt.png');
-      sheet(`${kind}_death_100`,  'Death.png');
+      img(`${kind}_idle_100`,   'Idle.png');
+      img(`${kind}_walk_100`,   'Walk.png');   // you renamed Run -> Walk
+      img(`${kind}_attack_100`, 'Attack.png');
+      img(`${kind}_hurt_100`,   'Hurt.png');
+      img(`${kind}_death_100`,  'Death.png');
     });
 
     this.load.on('loaderror', () => {/* swallow optional errors if any appear */});
@@ -116,7 +116,7 @@ export class SceneBattle extends Phaser.Scene {
         if (this.textures.exists(`${kind}_${src}_100`)) {
           this.anims.create({
             key: `${kind}_${short}`,
-            frames: this.anims.generateFrameNumbers(`${kind}_${src}_100`),
+            frames: [{ key: `${kind}_${src}_100` }],
             frameRate: fr, repeat: rep
           });
         }
