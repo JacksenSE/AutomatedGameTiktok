@@ -11,7 +11,7 @@ export class SceneBattle extends Phaser.Scene {
   // ---- Net / phase ----
   ws!: WebSocket;
   phase: Phase = 'LOBBY';
-  private wsUrl = `ws://${window.location.hostname}:8081`;
+  private wsUrl: string;
   private wsRetry = 0;
   private wsMaxRetry = 6;
   private wsConnectedOnce = false;
@@ -67,7 +67,16 @@ export class SceneBattle extends Phaser.Scene {
   /** remember userId -> displayName where available (from 'state'/'joined') */
   private nameByUserId = new Map<string, string>();
 
-  constructor(){ super('battle'); }
+  constructor(){ 
+    super('battle'); 
+    // Construct WebSocket URL based on environment
+    const hostname = window.location.hostname;
+    if (hostname.includes('--8081--') || hostname.includes(':8081')) {
+      this.wsUrl = `ws://${hostname}`;
+    } else {
+      this.wsUrl = `ws://${hostname}:8081`;
+    }
+  }
 
   // ------------------- PRELOAD -------------------
   preload(){
@@ -77,7 +86,11 @@ export class SceneBattle extends Phaser.Scene {
     // Required per unit: Idle, Walk, Attack, Hurt, Death (100x100).
     const kinds = Object.keys(UNIT_DEFS) as UnitKind[];
     kinds.forEach(kind=>{
-      const base = `assets/characters/${kind}/`;
+      // Convert snake_case to PascalCase for directory names
+      const pascalKind = kind.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join('');
+      const base = `assets/characters/${pascalKind}/`;
       const img = (key:string, file:string)=> this.load.image(key, base + file);
 
       img(`${kind}_idle_100`,   'Idle.png');
@@ -87,7 +100,10 @@ export class SceneBattle extends Phaser.Scene {
       img(`${kind}_death_100`,  'Death.png');
     });
 
-    this.load.on('loaderror', () => {/* swallow optional errors if any appear */});
+    this.load.on('loaderror', (file: any) => {
+      console.warn('Failed to load asset:', file.key, file.src);
+      /* swallow optional errors if any appear */
+    });
   }
 
   // ------------------- CREATE -------------------
