@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SceneBattle } from './game/SceneBattle';
 
-// Ensure a HUD root exists (absolute, pointer-events: none)
+// Ensure HUD root exists
 const HUD_ID = 'hud';
 let hud = document.getElementById(HUD_ID);
 if (!hud) {
@@ -20,20 +20,29 @@ if (!hud) {
   document.body.appendChild(hud);
 }
 
-
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 1920,
   height: 1080,
   backgroundColor: '#121212',
   pixelArt: true,
+  // Switch to Arcade physics for better performance with crowds
   physics: {
-    default: 'matter',              // ← Matter required by Fighter
-    matter: { gravity: {
-      y: 0,
-      x: 0
-    }, debug: false },
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0, x: 0 },
+      debug: false
+    }
   },
+  // Performance optimizations
+  render: {
+    antialias: false,
+    pixelArt: true,
+    roundPixels: true,
+    batchSize: 4096, // Increase batch size for better performance
+  },
+  // Disable some features for performance
+  disableContextMenu: true,
   scene: [SceneBattle],
 };
 
