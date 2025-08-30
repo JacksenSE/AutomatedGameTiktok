@@ -7,6 +7,50 @@ import { DevUI } from '../ui/DevUI';
 import { Projectile } from './Projectile';
 import { UNIT_DEFS, UnitKind, UnitDef, Team } from './unitDefs';
 
+/** Crop an image once to the scene's aspect and return a new texture key. */
+function cropToAspectOnce(
+  scene: Phaser.Scene,
+  srcKey: string,
+  outKey: string
+): string {
+  if (scene.textures.exists(outKey)) return outKey;
+
+  const tex = scene.textures.get(srcKey);
+  const img = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const srcW = img.width as number;
+  const srcH = img.height as number;
+
+  const vw = scene.scale.gameSize.width;
+  const vh = scene.scale.gameSize.height;
+  const targetAspect = vw / vh;
+  const srcAspect = srcW / srcH;
+
+  // Find the largest centered rect in the source that matches target aspect.
+  let cropW: number, cropH: number, cropX: number, cropY: number;
+  if (srcAspect > targetAspect) {
+    // too wide → trim sides
+    cropH = srcH;
+    cropW = Math.round(cropH * targetAspect);
+    cropX = Math.round((srcW - cropW) / 2);
+    cropY = 0;
+  } else {
+    // too tall → trim top/bottom
+    cropW = srcW;
+    cropH = Math.round(cropW / targetAspect);
+    cropX = 0;
+    cropY = Math.round((srcH - cropH) / 2);
+  }
+
+  // Draw the crop into a RenderTexture, save as new texture key.
+  const rt = scene.add.renderTexture(0, 0, cropW, cropH).setVisible(false);
+  // Draw the source texture into RT with negative offset so only the crop area appears.
+  rt.draw(srcKey, -cropX, -cropY);
+  rt.saveTexture(outKey);
+  rt.destroy();
+
+  return outKey;
+}
+
 export class SceneBattle extends Phaser.Scene {
   // ---- Net / phase ----
   ws!: WebSocket;
@@ -48,9 +92,9 @@ export class SceneBattle extends Phaser.Scene {
   private BOSS_SPD_MULT = 1.1;
 
   // ---- Separation (simple, stable) ----
-  private MIN_SEP = 26;
-  private SEP_ITER = 2;
-  private SEP_MAX_NEIGHBORS = 6;
+private MIN_SEP = 26;
+private SEP_ITER = 1;             
+private SEP_MAX_NEIGHBORS = 3;
 
   // ---- Misc ----
   private elapsedMs = 0;
@@ -71,8 +115,8 @@ export class SceneBattle extends Phaser.Scene {
 
   // ------------------- PRELOAD -------------------
   preload(){
-    // Background (optional)
-    this.load.image('bg_grass', '/assets/bg/grass.png');
+    // Background
+    this.load.image('arena_raw', 'assets/bg/arena_raw.png');
 
     // Required per unit: Idle, Walk, Attack, Hurt, Death (100x100).
     const kinds = Object.keys(UNIT_DEFS) as UnitKind[];
@@ -93,14 +137,27 @@ export class SceneBattle extends Phaser.Scene {
   // ------------------- CREATE -------------------
   create(){
     // Background / camera
-    if (this.textures.exists('bg_grass')) {
-      const vw = this.scale.gameSize.width, vh = this.scale.gameSize.height;
-      this.textures.get('bg_grass').setFilter(Phaser.Textures.FilterMode.NEAREST);
-      const ground = this.add.tileSprite(vw/2, vh/2, vw, vh, 'bg_grass').setDepth(-100);
-      this.scale.on('resize', (s: Phaser.Structs.Size) => ground.setSize(s.width, s.height).setPosition(s.width/2, s.height/2));
-    } else {
-      this.cameras.main.setBackgroundColor('#0c0e13');
-    }
+    const makeBg = () => {
+      const vw = this.scale.gameSize.width;
+      const vh = this.scale.gameSize.height;
+
+      // Crop once to current aspect so we only have ONE arena centered.
+      const croppedKey = cropToAspectOnce(this, 'arena_raw', 'arena_cropped');
+
+      // If you previously created a bg image, remove it
+      if ((this as any).__arenaBg) (this as any).__arenaBg.destroy();
+
+      const bg = this.add.image(vw / 2, vh / 2, croppedKey)
+        .setOrigin(0.5, 0.5)
+        .setDisplaySize(vw, vh)        // scale to fill viewport
+        .setScrollFactor(0)            // lock to camera
+        .setDepth(-100);
+
+      (this as any).__arenaBg = bg;
+    };
+
+    makeBg();
+    this.scale.on('resize', () => makeBg());
 
     // HUD + Countdown
     this.hud = new HUD(document.getElementById('hud')!);
@@ -257,7 +314,9 @@ export class SceneBattle extends Phaser.Scene {
     }
 
     // --- decision / movement / attacks ---
-    list.forEach(me=>{
+    list.forEach(me => {
+  if (me.aiCdMs > 0) return;         // skip thinking this tick
+  me.aiCdMs = 120 + Phaser.Math.Between(-20, 20);
       const enemiesAll = me.team==='A' ? teamB : teamA;
       const friendsAll = me.team==='A' ? teamA : teamB;
       const enemies = enemiesAll.filter(e => e.body && e.state!=='dead');
@@ -471,7 +530,7 @@ export class SceneBattle extends Phaser.Scene {
     // Boss first (doesn't count against burst, but does reduce remaining)
     if (isBoss) {
       this.spawnBossForWave(this.waveNumber);
-      // count boss as 2 "slots" worth so waves don’t overfill too much
+      // count boss as 2 "slots" worth so waves don't overfill too much
       this.waveSpawnsRemaining = Math.max(0, this.waveSpawnsRemaining - 2);
     }
 
@@ -655,7 +714,7 @@ export class SceneBattle extends Phaser.Scene {
     const name = opts?.name ?? (defn.displayName);
 
     const f = new Fighter(this, x, y, id, name, team, kind, defn);
-
+if (team === 'A') f.setAvatar('assets/dev/pfp.png');
     // Level/scaling for enemies per-wave
     if (opts?.level) f.level = opts.level;
     if (opts?.hpScale && team==='B') {

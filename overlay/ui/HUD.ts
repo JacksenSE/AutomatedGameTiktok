@@ -18,12 +18,12 @@ export class HUD {
     this.banner.className = 'banner';
     Object.assign(this.banner.style, {
       position: 'absolute',
-      top: '50%',
-      left: '50%',
+      top: '10%',
+      left: '45%',
       transform: 'translate(-50%,-50%)',
       fontSize: '42px',
       fontWeight: '800',
-      background: 'rgba(0,0,0,0.35)',
+      background: 'rgba(175, 18, 18, 0.35)',
       padding: '12px 18px',
       borderRadius: '10px',
       display: 'none',
